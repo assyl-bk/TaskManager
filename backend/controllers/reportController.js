@@ -25,16 +25,20 @@ const exportTasksReport = async (req, res) => {
 
         // Add rows
         tasks.forEach(task => {
-            const assignedTo = task.assignedTo.map((user) => `${user.name} (${user.email})`).join(', ');
+            const assignedTo = task.assignedTo
+                ? `${task.assignedTo.name} (${task.assignedTo.email})`
+                : 'Unassigned';
+
             worksheet.addRow({
                 _id: task._id,
                 title: task.title,
                 description: task.description,
                 priority: task.priority,
                 status: task.status,
-                dueDate: task.dueDate.toISOString().split('T')[0], // Format date to YYYY-MM-DD
-                assignedTo: assignedTo || 'Unassigned',
+                dueDate: task.dueDate ? task.dueDate.toISOString().split('T')[0] : '',
+                assignedTo,
             });
+
         });
 
         // Set response headers for Excel file download
@@ -68,20 +72,18 @@ const exportUsersReport = async (req, res) => {
             };
         });
         userTasks.forEach((task) => {
-            if (task.assignedTo) {
-                task.assignedTo.forEach((assignedUser) => {
-                    if (userTaskMap[assignedUser._id]) {
-                        userTaskMap[assignedUser._id].taskCount += 1;
-                        if (task.status === 'Pending') {
-                            userTaskMap[assignedUser._id].pendingTasks += 1;
-                        } else if (task.status === 'In Progress') {
-                            userTaskMap[assignedUser._id].inProgressTasks += 1;
-                        } else if (task.status === 'Completed') {
-                            userTaskMap[assignedUser._id].completedTasks += 1;
-                        }
-                    }
-                });
+            if (task.assignedTo && userTaskMap[task.assignedTo._id]) {
+                userTaskMap[task.assignedTo._id].taskCount += 1;
+
+                if (task.status === 'Pending') {
+                    userTaskMap[task.assignedTo._id].pendingTasks += 1;
+                } else if (task.status === 'In Progress') {
+                    userTaskMap[task.assignedTo._id].inProgressTasks += 1;
+                } else if (task.status === 'Completed') {
+                    userTaskMap[task.assignedTo._id].completedTasks += 1;
+                }
             }
+
         });
         const workbook = new excelJS.Workbook();
         const worksheet = workbook.addWorksheet('User Task Report');
